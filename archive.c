@@ -10,35 +10,36 @@
 int main() {
     char path[200];
     int menu;
+    FILE *file1;
 
-    printf("1: Archive the directory specified in the program\n");
-    printf("2: Enter the path to the directory using the keyboard\n");
+    printf("1: Archive and dearchive the directory specified in the program\n");
+    printf("2: Archive and dearchive the directory using the keyboard. Enter the path.\n");
     scanf("%d", &menu);
     switch (menu) {
         case 1:
             archive("folder1");
-            if (fopen("dop_file.txt", "r") == NULL) {
-                return 0;
-            } else {
+            file1 = fopen("dop_file", "rb");
+            if (file1 != NULL) {
                 head();
-                remove("dop_file.txt");
+                remove("dop_file");
+                unarchiver("archive");
+                fclose(file1);
             }
-            unarchiver("archive.txt");
+
             break;
         case 2:
             scanf("%s", path);
             archive(path);
             chdir("/home/iren/MAI/OS");
-            if (fopen("dop_file.txt", "r") == NULL) {
-                return 0;
-            } else {
+            file1 = fopen("dop_file", "rb");
+            if (file1 != NULL) {
                 head();
-                remove("dop_file.txt");
+                remove("dop_file");
+                unarchiver("archive");
+                fclose(file1);
             }
+
             break;
-        // case 3:
-        //     unarchiver("archive.txt");
-        //     break;
         default:
             printf("ERROR! Wrong menu item selected");
             return 0;
@@ -52,7 +53,6 @@ void archive(char *dir) {
     struct stat statbuf;
     char c;
     char path[128];
-    // char full_path[384];
     FILE *in, *out, *dop;
 
     if ((dp = opendir(dir)) == NULL) {
@@ -60,8 +60,8 @@ void archive(char *dir) {
         return;
     }
 
-    out = fopen("/home/iren/MAI/OS/dop_file.txt", "a");
-    dop = fopen("/home/iren/MAI/OS/archive.txt", "a+");
+    out = fopen("/home/iren/MAI/OS/dop_file", "ab");
+    dop = fopen("/home/iren/MAI/OS/archive", "ab+");
     chdir(dir);
     while ((entry = readdir(dp)) != NULL) {
         lstat(entry->d_name, &statbuf);
@@ -69,9 +69,8 @@ void archive(char *dir) {
             if (strcmp(".", entry->d_name) == 0 || strcmp("..", entry->d_name) == 0) continue;
             archive(entry->d_name);
         } else {
-            in = fopen(entry->d_name, "r");
+            in = fopen(entry->d_name, "rb");
             getcwd(path, 128);
-            // sprintf(full_path, "%s/%s", path, entry->d_name);
             fprintf(dop, "%s %ld %s ", entry->d_name, statbuf.st_size, path);
 
             while ((c = fgetc(in)) != EOF) {
@@ -88,8 +87,8 @@ void archive(char *dir) {
 
 void head() {
     char c;
-    FILE *in = fopen("dop_file.txt", "r");
-    FILE *out = fopen("archive.txt", "a+");
+    FILE *in = fopen("dop_file", "rb");
+    FILE *out = fopen("archive", "ab+");
     fputc('\n', out);
     while ((c = fgetc(in)) != EOF) {
         fputc(c, out);
@@ -99,10 +98,10 @@ void head() {
 }
 
 void unarchiver(char *archive_name) {
-    FILE *in = fopen(archive_name, "r");
+    FILE *in = fopen(archive_name, "rb");
     char header[512], *name, *size_str, *path, *name_dir = "folder_unarch";
     char c;
-    int i = 0, size;
+    int i = 0, size, slash;
     mkdir(name_dir, 0777);
     DIR *dp = opendir(name_dir);
     chdir(name_dir);
@@ -110,56 +109,70 @@ void unarchiver(char *archive_name) {
         header[i] = c;
         i++;
     }
-    name = strtok(header, " ");
-    size_str = strtok(NULL, " ");
-    path = strtok(NULL, " ");
+    char *saveptr;
+    name = strtok_r(header, " ", &saveptr);
+    size_str = strtok_r(NULL, " ", &saveptr);
+    path = strtok_r(NULL, " ", &saveptr);
+
     while (name != NULL && size_str != NULL && path != NULL) {
-        // printf("%s\n", path);
-        // char *doub_path = path;
-        // printf("%s\n", doub_path);
-        // create_dir(doub_path);
+        char *doub_path = path;
+
+        slash = create_dir(doub_path);
+
         size = atoi(size_str);
         int size_file = 0;
-        FILE *out = fopen(name, "a");
+        FILE *out = fopen(name, "ab");
         while (size_file != size) {
             c = fgetc(in);
             fputc(c, out);
             size_file++;
         }
         fclose(out);
-        chdir(name_dir);
-        // printf("%s", path);
-        name = strtok(NULL, " ");
-        size_str = strtok(NULL, " ");
-        path = strtok(NULL, " ");
+
+        while (slash > 0) {
+            chdir("..");
+            slash--;
+        }
+        name = strtok_r(NULL, " ", &saveptr);
+        size_str = strtok_r(NULL, " ", &saveptr);
+        path = strtok_r(NULL, " ", &saveptr);
     }
     fclose(in);
     closedir(dp);
 }
 
-// void create_dir(char *path) {
-//     int slash = 0;
-//     char *copy_path = path;
-//     while (*path != '\0') {
-//         if (*path == '/') {
-//             slash++;
-//         }
-//         path++;
-//     }
-//     char *folder;
-//     if (slash > 0) {
-//         for (int i = 0; i < slash; i++) {
-//             if (i == 0) {
-//                 folder = strtok(copy_path, "/");
-//             } else {
-//                 folder = strtok(NULL, "/");
-//             }
-//             // printf("%s", folder);
-//         }
-
-//         if (opendir(folder) == NULL) {
-//             mkdir(folder, 0777);
-//         }
-//         chdir(folder);
-//     }
-// }
+int create_dir(char *path) {
+    int slash = 0;
+    char *copy_path = strdup(path);
+    char *path_ptr = copy_path;
+    char *ptr = strstr(path_ptr, "/home/iren/MAI/OS/");
+    ptr += strlen("/home/iren/MAI/OS/");
+    while (*ptr != '\0') {
+        if (*ptr == '/') {
+            slash++;
+        }
+        ptr++;
+    }
+    path_ptr = copy_path;
+    char *folder, *save_ptr;
+    slash++;
+    for (int i = 0; i < slash; i++) {
+        if (i == 0) {
+            char *ptr = strstr(path_ptr, "/home/iren/MAI/OS/");
+            ptr += strlen("/home/iren/MAI/OS/");
+            folder = strtok_r(ptr, "/", &save_ptr);
+            if (opendir(folder) == NULL) {
+                mkdir(folder, 0777);
+            }
+            chdir(folder);
+        } else {
+            folder = strtok_r(NULL, "/", &save_ptr);
+            if (opendir(folder) == NULL) {
+                mkdir(folder, 0777);
+            }
+            chdir(folder);
+        }
+    }
+    free(copy_path);
+    return slash;
+}

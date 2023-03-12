@@ -9,7 +9,7 @@ struct tree {
 
 void archive(char *dir);
 void unarchiver(char *archive_name);
-void create_dir(char *path);
+int create_dir(char *path);
 void head();
 
 #endif
