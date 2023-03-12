@@ -7,7 +7,9 @@ struct tree {
     char *folder;
 };
 
-void archive(char *dir, struct tree *file);
+void archive(char *dir);
+void unarchiver(char *archive_name);
+void create_dir(char *path);
 void head();
 
 #endif

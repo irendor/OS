@@ -8,4 +8,4 @@ archive.o: archive.c
 	$(CC) $(FLAGS) archive.c 
 
 clean:
-	rm -rf *.o ./a.out archive.txt dop_file.txt
+	rm -rf *.o ./a.out archive.txt
